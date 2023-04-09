@@ -13,10 +13,8 @@ from target import Target
 
 image1 = None
 loaded = False
-pts = []
 edged = None
 img_display = None
-target = None # type: Target
 
 
 def try_get_trackbar(name, win):
@@ -41,8 +39,7 @@ def mouse_click(event, x, y, flags, param):
 
 
 def reset_go(val=0):
-    global pts, target, z0
-    pts = []
+    global target
 
     distance = cv2.getTrackbarPos('Image sel', 'win')
     if distance == 3:
@@ -77,8 +74,8 @@ def go(val=0):
         cv2.imshow('win', target.frame())
 
 
-def translate(val):
-    match val:
+def translate(val=0):
+    match try_get_trackbar('translation', 'win'):
         case 0:
             x = 0
             s = '0'
@@ -91,7 +88,7 @@ def translate(val):
         case default:
             return
 
-    distance = cv2.getTrackbarPos('Image sel', 'win')
+    distance = try_get_trackbar('Image sel', 'win')
     if distance == 3:
         distance = 4
 
@@ -107,13 +104,20 @@ def translate(val):
 
 cv2.namedWindow('win', cv2.WINDOW_AUTOSIZE)
 
-cv2.createTrackbar('Image sel', 'win', 2, 3, reset_go)
+distance = 2
+image1 = cv2.imread('img\\cvtest_' + str(distance) + '_0.png')
+image1 = cv2.resize(image1,
+                    (int(image1.shape[1] / 2), int(image1.shape[0] / 2)))
+target = Target(image1, origin_viewport=(0, 0, 5.978 + float(distance)))
+
+cv2.createTrackbar('Image sel', 'win', distance, 3, translate)
 cv2.createTrackbar('Flat image', 'win', 4, 4, go)
 cv2.createTrackbar('Blur size', 'win', 3, 10, go)
 cv2.createTrackbar('Canny thr1', 'win', 25, 255, go)
 cv2.createTrackbar('Canny thr2', 'win', 100, 255, go)
 cv2.createTrackbar('Display img', 'win', 0, 1, go)
 cv2.createTrackbar('translation', 'win', 0, 2, translate)
+
 
 loaded = True
 go()

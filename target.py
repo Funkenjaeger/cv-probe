@@ -105,43 +105,48 @@ class Target:
         self._edge_detect()
         self._recalculate()
 
-    def _recalculate(self):
+    def _recalculate(self, update=True):
         # Sort points by vector angle relative to bounding box center
         if self._pts_picked is None or len(self._pts_picked) == 0:
             return []
         x, y, w, h = cv2.boundingRect(np.asarray(self._pts_picked))
         xc, yc = x + w / 2, y + h / 2
-        self._bb_center = (xc, yc)
         theta = [np.arctan2(y - yc, x - xc) for (x, y) in self._pts_picked]
-        self._pts_picked = [pt for _, pt in
-                            sorted(zip(theta, self._pts_picked))]
+        pts_picked = [pt for _, pt in sorted(zip(theta, self._pts_picked))]
 
         # Find edges from picked points
-        self._edges = []
-        for i in range(0, len(self._pts_picked)):
-            (x, y) = self._pts_picked[i]
-            if len(self._pts_picked) > 1:
+        edges = []
+        for i in range(0, len(pts_picked)):
+            if len(pts_picked) > 1:
                 rho, theta = lineprocessing.find_line(self._edged_img,
-                                                      self._pts_picked[i - 1],
-                                                      self._pts_picked[i])
+                                                      pts_picked[i - 1],
+                                                      pts_picked[i])
                 if rho:
-                    self._edges.append((rho, theta))
+                    edges.append((rho, theta))
 
         # Find vertices from edges
-        self._vertices = []
-        for i in range(0, len(self._edges)):
-            if len(self._edges) > 1:
+        vertices = []
+        for i in range(0, len(edges)):
+            if len(edges) > 1:
                 x, y, theta = lineprocessing.find_intersection(
-                    self._edges[i - 1],
-                    self._edges[i])
+                    edges[i - 1],
+                    edges[i])
                 if x:
-                    self._vertices.append((x, y, theta))
+                    vertices.append((x, y, theta))
 
-        if len(self._vertices) == 4:
-            # Remove picked points once we have a full set of 4 vertices
-            self._pts_picked = []
-            if self._pos == self._origin_viewport:
-                self._vertices_origin = self._vertices.copy()
+        if update:
+            self._vertices = vertices.copy()
+            self._edges = edges.copy()
+            self._bb_center = (xc, yc)
+            if len(self._vertices) == 4:
+                # Remove picked points once we have a full set of 4 vertices
+                self._pts_picked = []
+                if self._pos == self._origin_viewport:
+                    self._vertices_origin = self._vertices.copy()
+            else:
+                self._pts_picked = pts_picked.copy()
+
+        return vertices, edges
 
     @staticmethod
     def _point_text(img,  x, y, color=(255, 255, 0)):
@@ -196,6 +201,8 @@ class Target:
         return img
 
     def translate(self, img, pos: tuple[float, float, float]):
+        if len(self._vertices_origin) == 0:
+            return False
         self.img = img
         self._pos = pos
         self._edge_detect()
@@ -205,17 +212,38 @@ class Target:
         # TODO: f/d shouldn't be hard coded
         # TODO: deal with dz (scale)
         f_by_d = 1320/2 # ~1320 @ full resolution, here we're scaled to 50%
+        scale = z0/z
+        yc, xc = img.shape[0]/2, img.shape[1]/2
         disparity = (f_by_d * dx / z, f_by_d * dy / z)
 
         vertices_expected = []
         for i in range(0, len(self._vertices)):
-            vo = self._vertices_origin[i]
-            vertices_expected.append((int(vo[0] + disparity[0]),
-                                    int(vo[1] + disparity[1]),
-                                    vo[2]))
+            (xv, yv, tv) = self._vertices_origin[i]
+            xv = int((xv - xc) * scale + xc + disparity[0])
+            yv = int((yv - yc) * scale + yc + disparity[1])
+            vertices_expected.append((xv, yv, tv))
+        self._pts_picked = [(x, y) for (x, y, _) in vertices_expected]
+        v, e = self._recalculate(update=False)
+        if len(v) == 4 and len(vertices_expected) == 4:
+            self._recalculate()  # Now update for real
+            print(f'Successfully translated from {self._origin_viewport} to '
+                  f'{pos}, disparity {disparity}')
+            errs = []
+            for i in range(0, len(vertices_expected)):
+                (x, y, _) = v[i]
+                (xe, ye, _) = vertices_expected[i]
+                err = np.round(np.sqrt((x-xe)**2 + (y-ye)**2), decimals=1)
+                errs.append(err)
+            print(f'Vertex position errors (pixels): {errs} '
+                  f'({np.mean(errs):.1f} avg)')
+            return True
+        else:
+            print(f'Failed to translate from {self._origin_viewport} to '
+                  f'{pos}, disparity {disparity} - only got {len(v)} vertices')
+            self._vertices = vertices_expected.copy()
+            # TODO: handle case where some vertices are out of frame
+            # TODO: handle case where some vertices are in frame but not found
+            # Probably just use the expected values for each missing vertex and
+            # its 2 associated lines
 
-        self._vertices = vertices_expected.copy()
-
-        #TODO: try to match vertices to image.  copy to picked pts and recalc?
-
-        print(f'Translated from {self._origin_viewport} to {pos}, disparity {disparity}')
+            return False
