@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import lineprocessing
+from typing import Tuple
 
 
 class Target:
@@ -9,15 +10,10 @@ class Target:
     _vertices_origin = []
     _vertices = []
     _edges = []
-    _pos = None
     _bb_center = None
-    _flat_img_sel = None
-    _blur_size = None
-    _canny_thr1 = None
-    _canny_thr2 = None
     _edged_img = None
 
-    def __init__(self, img, origin_viewport: tuple[float, float, float],
+    def __init__(self, img, origin_viewport: Tuple[float, float, float],
                  flat: str = 'BGR',
                  blur: int = 3,
                  thr1: int = 25,
@@ -197,7 +193,7 @@ class Target:
         self.annotate_image(img)
         return img
 
-    def translate(self, img, pos: tuple[float, float, float]):
+    def translate(self, img, pos: Tuple[float, float, float]):
         if len(self._vertices_origin) == 0:
             return False
         self.img = img
