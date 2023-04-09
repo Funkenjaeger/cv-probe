@@ -2,8 +2,6 @@ from __future__ import print_function
 import cv2
 from target import Target
 
-# rr.init("my data", spawn=True)
-
 image1 = None
 loaded = False
 edged = None

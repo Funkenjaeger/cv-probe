@@ -1,15 +1,9 @@
 from __future__ import print_function
 import cv2
 import numpy as np
-import rerun as rr
-
-rr.init("my data", spawn=True)
 
 
 def find_line(edgedimg, pt1, pt2, margin=10):
-
-    rr.log_image("image", edgedimg)
-
     mask = edgedimg.copy()
     mask.fill(0)
     cv2.line(mask, pt1, pt2, color=255, thickness=1)
@@ -18,12 +12,8 @@ def find_line(edgedimg, pt1, pt2, margin=10):
                                        (margin, margin))
     mask = cv2.dilate(mask, kernel)
 
-    rr.log_image("image", mask)
-
     img = edgedimg.copy()
     img = cv2.bitwise_and(img, mask)
-
-    rr.log_image("image", img)
 
     threshold = 0.5 * np.sqrt((pt2[0] - pt1[0]) ** 2 + (pt2[1] - pt1[1]) ** 2)
     lines = cv2.HoughLinesWithAccumulator(img, rho=1, theta=0.2 * np.pi / 180,
@@ -51,7 +41,6 @@ def find_line(edgedimg, pt1, pt2, margin=10):
         color = (0, 255, 0) if i == 0 else (0, 0, c)
         draw_line(img, rho, theta, color)
 
-    rr.log_image("image", img)
     [rho, theta, _] = lines[0, 0, :]  # Return highest-scoring line
     return rho, theta
 
