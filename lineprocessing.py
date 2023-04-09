@@ -1,10 +1,6 @@
 from __future__ import print_function
 import cv2
 import numpy as np
-import scipy
-import matplotlib.pyplot as plt
-from matplotlib import cm
-import skimage
 import rerun as rr
 
 rr.init("my data", spawn=True)
@@ -29,9 +25,9 @@ def find_line(edgedimg, pt1, pt2, margin=10):
 
     rr.log_image("image", img)
 
-    threshold = 0.5 * np.sqrt((pt2[0] - pt1[0]) **2 + (pt2[1] - pt1[1]) **2)
+    threshold = 0.5 * np.sqrt((pt2[0] - pt1[0]) ** 2 + (pt2[1] - pt1[1]) ** 2)
     lines = cv2.HoughLinesWithAccumulator(img, rho=1, theta=0.2 * np.pi / 180,
-                                              threshold=int(threshold))
+                                          threshold=int(threshold))
 
     if lines is None:
         # Try again with even lower threshold
@@ -56,7 +52,7 @@ def find_line(edgedimg, pt1, pt2, margin=10):
         draw_line(img, rho, theta, color)
 
     rr.log_image("image", img)
-    [rho, theta, _] = lines[i, 0, :]
+    [rho, theta, _] = lines[0, 0, :]  # Return highest-scoring line
     return rho, theta
 
 
@@ -65,10 +61,10 @@ def draw_line(img, rho, theta, color=(0, 0, 255)):
     b = np.sin(theta)
     x0 = a * rho
     y0 = b * rho
-    x1 = int(x0 + 1000 * (-b))
-    y1 = int(y0 + 1000 * (a))
-    x2 = int(x0 - 1000 * (-b))
-    y2 = int(y0 - 1000 * (a))
+    x1 = int(x0 + 1000 * -b)
+    y1 = int(y0 + 1000 * a)
+    x2 = int(x0 - 1000 * -b)
+    y2 = int(y0 - 1000 * a)
     cv2.line(img, (x1, y1), (x2, y2), color, 1)
 
 

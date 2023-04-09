@@ -1,15 +1,8 @@
 from __future__ import print_function
-import argparse
 import cv2
-import numpy as np
-import scipy
-import matplotlib.pyplot as plt
-from matplotlib import cm
-import rerun as rr
-import lineprocessing
 from target import Target
 
-#rr.init("my data", spawn=True)
+# rr.init("my data", spawn=True)
 
 image1 = None
 loaded = False
@@ -39,7 +32,7 @@ def mouse_click(event, x, y, flags, param):
 
 
 def reset_go(val=0):
-    global target
+    global target, image1
 
     distance = cv2.getTrackbarPos('Image sel', 'win')
     if distance == 3:
@@ -75,18 +68,21 @@ def go(val=0):
 
 
 def translate(val=0):
-    match try_get_trackbar('translation', 'win'):
-        case 0:
+    t = try_get_trackbar('translation', 'win')
+    if t is not None:
+        if t == 0:
             x = 0
             s = '0'
-        case 1:
+        elif t == 1:
             x = 0.25
             s = '0.25'
-        case 2:
+        elif t == 2:
             x = 1.0
             s = '1'
-        case default:
+        else:
             return
+    else:
+        return
 
     distance = try_get_trackbar('Image sel', 'win')
     if distance == 3:

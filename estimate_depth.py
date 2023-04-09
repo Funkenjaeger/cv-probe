@@ -11,18 +11,10 @@ ap.add_argument("-i", "--image", required=True,
 args = vars(ap.parse_args())
 
 distance = 4
-image1 = cv2.imread('img\cvtest_'+str(distance)+'_0.png')
-image2 = cv2.imread('img\cvtest_'+str(distance)+'_0.25.png')
-image3 = cv2.imread('img\cvtest_'+str(distance)+'_1.png')
-#image = cv2.imread(args["image1"])
+image1 = cv2.imread('img\\cvtest_'+str(distance)+'_0.png')
+image2 = cv2.imread('img\\cvtest_'+str(distance)+'_0.25.png')
+image3 = cv2.imread('img\\cvtest_'+str(distance)+'_1.png')
 
-#image = image[:, 790:810]
-#print("width: {} pixels".format(image.shape[1]))
-#print("height: {} pixels".format(image.shape[0]))
-#print("channels: {}".format(image.shape[2]))
-
-#i1 = cv2.cvtColor(image1, cv2.COLOR_BGR2GRAY)
-#i2 = cv2.cvtColor(image2, cv2.COLOR_BGR2GRAY)
 i1 = np.sum(image1.astype('float'), axis=2)[:, 800:820]
 i2 = np.sum(image2.astype('float'), axis=2)[:, 800:820]
 i3 = np.sum(image3.astype('float'), axis=2)[:, 800:820]
@@ -30,8 +22,6 @@ i3 = np.sum(image3.astype('float'), axis=2)[:, 800:820]
 i1 -= np.mean(i1)
 i2 -= np.mean(i2)
 i3 -= np.mean(i3)
-
-#result = cv2.matchTemplate(i1, i2, cv2.TM_CCOEFF)
 
 xcorr = scipy.signal.fftconvolve(i1, i1[::-1, ::-1], 'same')
 

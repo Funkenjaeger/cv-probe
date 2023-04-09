@@ -40,21 +40,18 @@ class Target:
         return self._edges
 
     def _edge_detect(self):
-        hsv = cv2.cvtColor(self.img, cv2.COLOR_BGR2HSV)
-
-        match self._flat_img_sel:
-            case 'gray':
-                img2process = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)
-            case 'Hsv' | 'hue':
-                img2process = cv2.cvtColor(self.img, cv2.COLOR_BGR2HSV)[:, :, 0]
-            case 'hSv' | 'saturation':
-                img2process = cv2.cvtColor(self.img, cv2.COLOR_BGR2HSV)[:, :, 1]
-            case 'hsV' | 'value':
-                img2process = cv2.cvtColor(self.img, cv2.COLOR_BGR2HSV)[:, :, 2]
-            case 'BGR' | 'bgr':
-                img2process = self.img.copy()
-            case default:
-                img2process = None
+        if self._flat_img_sel == 'gray':
+            img2process = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)
+        elif self._flat_img_sel in ['Hsv', 'hue']:
+            img2process = cv2.cvtColor(self.img, cv2.COLOR_BGR2HSV)[:, :, 0]
+        elif self._flat_img_sel in ['hSv', 'saturation']:
+            img2process = cv2.cvtColor(self.img, cv2.COLOR_BGR2HSV)[:, :, 1]
+        elif self._flat_img_sel in ['hsV', 'value']:
+            img2process = cv2.cvtColor(self.img, cv2.COLOR_BGR2HSV)[:, :, 2]
+        elif self._flat_img_sel in ['BGR', 'bgr']:
+            img2process = self.img.copy()
+        else:
+            img2process = None
 
         blurred = cv2.GaussianBlur(img2process,
                                    (self._blur_size, self._blur_size), 0)
@@ -82,9 +79,9 @@ class Target:
         self._recalculate()
 
     def params(self, flat: str = None,
-                 blur: int = None,
-                 thr1: int = None,
-                 thr2: int = None):
+               blur: int = None,
+               thr1: int = None,
+               thr2: int = None):
         if flat is not None:
             self._flat_img_sel = flat
 
@@ -211,7 +208,7 @@ class Target:
         dx, dy = x-x0, y-y0
         # TODO: f/d shouldn't be hard coded
         # TODO: deal with dz (scale)
-        f_by_d = 1320/2 # ~1320 @ full resolution, here we're scaled to 50%
+        f_by_d = 1320/2  # ~1320 @ full resolution, here we're scaled to 50%
         scale = z0/z
         yc, xc = img.shape[0]/2, img.shape[1]/2
         disparity = (f_by_d * dx / z, f_by_d * dy / z)
