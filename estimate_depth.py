@@ -11,9 +11,9 @@ ap.add_argument("-i", "--image", required=True,
 args = vars(ap.parse_args())
 
 distance = 4
-image1 = cv2.imread('img\\cvtest_'+str(distance)+'_0.png')
-image2 = cv2.imread('img\\cvtest_'+str(distance)+'_0.25.png')
-image3 = cv2.imread('img\\cvtest_'+str(distance)+'_1.png')
+image1 = cv2.imread('img/cvtest_'+str(distance)+'_0.png')
+image2 = cv2.imread('img/cvtest_'+str(distance)+'_0.25.png')
+image3 = cv2.imread('img/cvtest_'+str(distance)+'_1.png')
 
 i1 = np.sum(image1.astype('float'), axis=2)[:, 800:820]
 i2 = np.sum(image2.astype('float'), axis=2)[:, 800:820]

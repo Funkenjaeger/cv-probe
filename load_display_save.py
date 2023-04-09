@@ -35,7 +35,7 @@ def reset_go(val=0):
     distance = cv2.getTrackbarPos('Image sel', 'win')
     if distance == 3:
         distance = 4
-    image1 = cv2.imread('img\\cvtest_' + str(distance) + '_0.png')
+    image1 = cv2.imread('img/cvtest_' + str(distance) + '_0.png')
     image1 = cv2.resize(image1,
                         (int(image1.shape[1] / 2), int(image1.shape[0] / 2)))
 
@@ -86,7 +86,7 @@ def translate(val=0):
     if distance == 3:
         distance = 4
 
-    img = cv2.imread('img\\cvtest_' + str(distance) + '_' + s + '.png')
+    img = cv2.imread('img/cvtest_' + str(distance) + '_' + s + '.png')
     img = cv2.resize(img, (int(img.shape[1] / 2), int(img.shape[0] / 2)))
     pos = (0, x, 5.978 + float(distance))
     target.translate(img, pos)
@@ -99,7 +99,7 @@ def translate(val=0):
 cv2.namedWindow('win', cv2.WINDOW_AUTOSIZE)
 
 distance = 2
-image1 = cv2.imread('img\\cvtest_' + str(distance) + '_0.png')
+image1 = cv2.imread('img/cvtest_' + str(distance) + '_0.png')
 image1 = cv2.resize(image1,
                     (int(image1.shape[1] / 2), int(image1.shape[0] / 2)))
 target = Target(image1, origin_viewport=(0, 0, 5.978 + float(distance)))
