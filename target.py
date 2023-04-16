@@ -35,6 +35,11 @@ class Target:
     def edges(self):
         return self._edges
 
+    @property
+    def is_found(self):
+        return len(self._vertices) == 4
+
+
     def _edge_detect(self):
         if self._flat_img_sel == 'gray':
             img2process = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)

@@ -1,11 +1,21 @@
 from __future__ import print_function
 import cv2
 from target import Target
+import linuxcnc
+import time
+import depth
+import numpy as np
 
 image1 = None
 loaded = False
 edged = None
 img_display = None
+
+cnc_s = linuxcnc.stat()
+cnc_c = linuxcnc.command()
+
+cnc_s.poll()
+print(f'Actual position: {cnc_s.actual_position}')
 
 
 def try_get_trackbar(name, win):
@@ -32,14 +42,14 @@ def mouse_click(event, x, y, flags, param):
 def reset_go(val=0):
     global target, image1
 
-    distance = cv2.getTrackbarPos('Image sel', 'win')
-    if distance == 3:
-        distance = 4
-    image1 = cv2.imread('img/cvtest_' + str(distance) + '_0.png')
-    image1 = cv2.resize(image1,
-                        (int(image1.shape[1] / 2), int(image1.shape[0] / 2)))
-
-    target = Target(image1, origin_viewport=(0, 0, 5.978 + float(distance)))
+    for i in range(0, 10):
+        cam.read()
+        time.sleep(0.1)
+    result, img0 = cam.read()
+    target.img = img0.copy()
+    target._pts_picked = []
+    target._vertices = []
+    target._edges = []
 
     go()
 
@@ -96,12 +106,40 @@ def translate(val=0):
         cv2.imshow('win', target.frame())
 
 
+def ok_for_mdi():
+    cnc_s.poll()
+    homed = True
+    for joint in cnc_s.joint:
+        homed = homed and ((not joint['enabled']) or (joint['homed'] != 0))
+    # TODO: check actual enum for STATE_ESTOP
+    return cnc_s.estop==-1 and cnc_s.enabled and homed and (cnc_s.interp_state == linuxcnc.INTERP_IDLE)
+
+
+def get_pos():
+    cnc_s.poll()
+    p = cnc_s.actual_position
+    return p[0:3]
+
 cv2.namedWindow('win', cv2.WINDOW_AUTOSIZE)
 
+cam = cv2.VideoCapture(-1)
+if not cam.isOpened():
+    print("Failed to open camera")
+    exit()
+cam.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
+cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
+cam.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+result, image = cam.read()
+if result:
+    image1 = image
+else:
+    print("Failed to get image")
+    exit()
+
 distance = 2
-image1 = cv2.imread('img/cvtest_' + str(distance) + '_0.png')
-image1 = cv2.resize(image1,
-                    (int(image1.shape[1] / 2), int(image1.shape[0] / 2)))
+# cv2.imread('img/cvtest_' + str(distance) + '_0.png')
+# image1 = cv2.resize(image1, (int(image1.shape[1] / 2), int(image1.shape[0] / 2)))
+(x, y, z) = get_pos()
 target = Target(image1, origin_viewport=(0, 0, 5.978 + float(distance)))
 
 cv2.createTrackbar('Image sel', 'win', distance, 3, translate)
@@ -111,11 +149,105 @@ cv2.createTrackbar('Canny thr1', 'win', 25, 255, go)
 cv2.createTrackbar('Canny thr2', 'win', 100, 255, go)
 cv2.createTrackbar('Display img', 'win', 0, 1, go)
 cv2.createTrackbar('translation', 'win', 0, 2, translate)
+cv2.createTrackbar('reset', 'win', 0, 1, reset_go)
 
 
 loaded = True
 go()
 cv2.setMouseCallback('win', mouse_click)
 
-cv2.waitKey(0)
+t_update = time.time()
+while True:
+    key = cv2.pollKey()
+    if key > 0:  # Ref asciitable.com for decimal values
+        print(f'Got key {key}')
+    if cv2.getWindowProperty('win', cv2.WND_PROP_VISIBLE) < 1:
+        break
+    if target.is_found:
+        while True:
+            print('Ready to find depth, press spacebar to continue')
+            key = cv2.waitKey(0)
+            if key == 32:  # space
+                if ok_for_mdi():
+                    cnc_c.mode(linuxcnc.MODE_MDI)
+                    (vx0, vy0, _) = target.vertices[0]  # TODO: pick vertices with smartness
+                    (vx1, vy1, _) = target.vertices[1]
+                    l = min(vx0, vx1) - 10
+                    r = max(vx0, vx1) + 10
+
+                    cnc_c.mdi(f'G53 G90 G0 Z{0:0.5f}')
+                    rv = cnc_c.wait_complete(5)
+                    time.sleep(2)
+                    (x0, y0, z0) = get_pos()
+                    for i in range(0,10):
+                        cam.read()
+                        time.sleep(0.1)
+                    result, img0 = cam.read()
+
+                    cnc_c.mdi(f'G53 G90 G0 X{x0 + 2.0:0.5f} Z{z0:0.5f}')
+                    rv = cnc_c.wait_complete(5)
+                    if rv != 1:
+                        print('MDI command timed out')
+                        break
+                    for i in range(0, 10):
+                        cam.read()
+                        time.sleep(0.1)
+                    result, img1 = cam.read()
+                    v = np.asarray([[x, y] for (x, y, _) in target.vertices], dtype=np.int32)
+                    disparity0 = depth.estimate_disparity(img0, img1, v)
+
+                    cnc_c.mdi(f'G53 G90 G0 X{x0:0.5f} Z{z0 - 2.0:0.5f}')
+                    rv = cnc_c.wait_complete(5)
+                    for i in range(0, 10):
+                        cam.read()
+                        time.sleep(0.1)
+                    result, img0 = cam.read()
+
+                    cnc_c.mdi(f'G53 G90 G0 X{x0 + 2.0:0.5f} Z{z0 - 2.0:0.5f}')
+                    rv = cnc_c.wait_complete(5)
+                    for i in range(0, 10):
+                        cam.read()
+                        time.sleep(0.1)
+                    result, img1 = cam.read()
+                    # DEBUG
+                    x1, y1, z1 = 0, 0, -2
+                    dx, dy = 0, 0
+                    # TODO: f/d shouldn't be hard coded
+                    # TODO: deal with dz (scale)
+                    f_by_d = 1320 / 2  # ~1320 @ full resolution, here we're scaled to 50%
+                    scale = (z0 + 11) / (z1 + 11)
+                    yc, xc = img1.shape[0] / 2, img1.shape[1] / 2
+                    disparity = (f_by_d * dx / (z1+11), f_by_d * dy / (z1+11))
+
+                    vertices_translated = []
+                    for i in range(0, len(target.vertices)):
+                        (xv, yv, _) = target.vertices[i]
+                        xv = int((xv - xc) * scale + xc + disparity[0])
+                        yv = int((yv - yc) * scale + yc + disparity[1])
+                        vertices_translated.append([xv, yv])
+                    # END DEBUG
+                    vertices_translated = np.asarray(vertices_translated, dtype=np.int32)
+                    disparity1 = depth.estimate_disparity(img0, img1, vertices_translated)
+                    z0_est, f_by_d_est = depth.estimate_depth(disparity0, disparity1, 2, -2)
+
+                    cnc_c.mdi(f'G53 G90 G0 X{x0:0.5f} Z{z0:0.5f}')
+                    rv = cnc_c.wait_complete(5)
+
+                    print(f'Disparity at Z0: {disparity0}, at Z-2: {disparity1}')
+                    print(f'Estimated Z0: {z0_est:.2f}, f/d: {f_by_d_est:.1f}')
+                    print('Successfully collected all 4 images, press a thing to continue')
+                    cv2.waitKey(0)
+                    break
+                else:
+                    print('Machine not ready for MDI')
+    '''if (time.time() - t_update) > 0.1:
+        result, image = cam.read()
+        if result:
+            image1 = image
+            cnc_s.poll()
+            pos = cnc_s.actual_position
+            target.translate(image, pos[0:3])
+        else:
+            print("Failed to get image")'''
+
 cv2.destroyAllWindows()
