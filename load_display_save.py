@@ -5,6 +5,7 @@ import linuxcnc
 import time
 import depth
 import numpy as np
+import json
 
 image1 = None
 loaded = False
@@ -126,8 +127,8 @@ cam = cv2.VideoCapture(-1)
 if not cam.isOpened():
     print("Failed to open camera")
     exit()
-cam.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
-cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
+cam.set(cv2.CAP_PROP_FRAME_WIDTH, 2560)
+cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 1440)
 cam.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 result, image = cam.read()
 if result:
@@ -156,6 +157,14 @@ loaded = True
 go()
 cv2.setMouseCallback('win', mouse_click)
 
+with open('camera-cal_anker.json') as file:
+    obj = json.load(file)
+matrix = obj.get('matrix', None)
+distortion = obj.get('distortion', None)
+h, w = image1.shape[:2]
+newcameramtx, roi = cv2.getOptimalNewCameraMatrix(matrix, distortion,
+                                                  (w, h), 1, (w, h))
+
 t_update = time.time()
 while True:
     key = cv2.pollKey()
@@ -183,6 +192,8 @@ while True:
                         cam.read()
                         time.sleep(0.1)
                     result, img0 = cam.read()
+                    img0 = cv2.undistort(img0, matrix, distortion, None,
+                                       newcameramtx)
 
                     cnc_c.mdi(f'G53 G90 G0 X{x0 + 2.0:0.5f} Z{z0:0.5f}')
                     rv = cnc_c.wait_complete(5)
@@ -193,10 +204,12 @@ while True:
                         cam.read()
                         time.sleep(0.1)
                     result, img1 = cam.read()
+                    img1 = cv2.undistort(img1, matrix, distortion, None,
+                                         newcameramtx)
                     v = np.asarray([[x, y] for (x, y, _) in target.vertices], dtype=np.int32)
-                    disparity0 = depth.estimate_disparity(img0, img1, v)
+                    disparity = depth.estimate_disparity(img0, img1, v)
 
-                    cnc_c.mdi(f'G53 G90 G0 X{x0:0.5f} Z{z0 - 2.0:0.5f}')
+                    '''cnc_c.mdi(f'G53 G90 G0 X{x0:0.5f} Z{z0 - 2.0:0.5f}')
                     rv = cnc_c.wait_complete(5)
                     for i in range(0, 10):
                         cam.read()
@@ -227,7 +240,7 @@ while True:
                         vertices_translated.append([xv, yv])
                     # END DEBUG
                     vertices_translated = np.asarray(vertices_translated, dtype=np.int32)
-                    disparity1 = depth.estimate_disparity(img0, img1, vertices_translated)
+                    disparity1 = depth.estimate_disparity(img0, img1, vertices_translated)'''
                     z0_est, f_by_d_est = depth.estimate_depth(disparity0, disparity1, 2, -2)
 
                     cnc_c.mdi(f'G53 G90 G0 X{x0:0.5f} Z{z0:0.5f}')
