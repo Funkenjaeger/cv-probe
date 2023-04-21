@@ -137,13 +137,14 @@ cam.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
 cam.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 cam.set(cv2.CAP_PROP_FRAME_WIDTH, 2560)
 cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 1440)
-# cam.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # turn the autofocus off
 cam.set(cv2.CAP_PROP_AUTOFOCUS, 1)  # turn the autofocus on
 # result, image = cam.read()
 # time.sleep(1)
 result, image = cam.read()
-focus = cam.get(cv2.CAP_PROP_FOCUS)
-print(f'Focus = {focus}')
+var = cv2.Laplacian(image, cv2.CV_64F).var()
+print(f'Laplacian variance: {var}')
+# TODO: if the variance sucks (100+ is good, ~50 is passable, <20 is badly blurry) try to make it autofocus
+# TODO: once satisfied with the focus, turn off autofocus
 if result:
     image1 = image
 else:
