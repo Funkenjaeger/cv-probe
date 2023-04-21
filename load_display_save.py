@@ -33,11 +33,13 @@ def try_get_trackbar(name, win):
 def mouse_click(event, x, y, flags, param):
     if event == cv2.EVENT_LBUTTONDOWN:
         delete = bool(flags & cv2.EVENT_FLAG_CTRLKEY)
-        target.pick_point((x, y), delete=delete)
+        target.pick_point((x*2, y*2), delete=delete)
         if try_get_trackbar('Display img', 'win'):
-            cv2.imshow('win', target.frame_edged())
+            img = target.frame_edged()
         else:
-            cv2.imshow('win', target.frame())
+            img = target.frame()
+        img = cv2.resize(img, (int(img.shape[1] / 2), int(img.shape[0] / 2)))
+        cv2.imshow('win', img)
 
 
 def reset_go(val=0):
@@ -71,9 +73,11 @@ def go(val=0):
     target.params(flat=flat, blur=blur, thr1=thr1, thr2=thr2)
 
     if display_img:
-        cv2.imshow('win', target.frame_edged())
+        img = target.frame_edged()
     else:
-        cv2.imshow('win', target.frame())
+        img = target.frame()
+    img = cv2.resize(img, (int(img.shape[1]/2), int(img.shape[0]/2)))
+    cv2.imshow('win', img)
 
 
 def translate(val=0):
@@ -121,16 +125,25 @@ def get_pos():
     p = cnc_s.actual_position
     return p[0:3]
 
+
 cv2.namedWindow('win', cv2.WINDOW_AUTOSIZE)
 
+# cam = cv2.VideoCapture("v4l2src device=/dev/video0 ! video/x-raw, width=2560, height=1440 ! videoconvert ! video/x-raw,format=BGR ! appsink")
 cam = cv2.VideoCapture(-1)
 if not cam.isOpened():
     print("Failed to open camera")
     exit()
+cam.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+cam.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 cam.set(cv2.CAP_PROP_FRAME_WIDTH, 2560)
 cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 1440)
-cam.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+# cam.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # turn the autofocus off
+cam.set(cv2.CAP_PROP_AUTOFOCUS, 1)  # turn the autofocus on
+# result, image = cam.read()
+# time.sleep(1)
 result, image = cam.read()
+focus = cam.get(cv2.CAP_PROP_FOCUS)
+print(f'Focus = {focus}')
 if result:
     image1 = image
 else:
@@ -146,8 +159,8 @@ target = Target(image1, origin_viewport=(0, 0, 5.978 + float(distance)))
 cv2.createTrackbar('Image sel', 'win', distance, 3, translate)
 cv2.createTrackbar('Flat image', 'win', 4, 4, go)
 cv2.createTrackbar('Blur size', 'win', 3, 10, go)
-cv2.createTrackbar('Canny thr1', 'win', 25, 255, go)
-cv2.createTrackbar('Canny thr2', 'win', 100, 255, go)
+cv2.createTrackbar('Canny thr1', 'win', 20, 255, go)
+cv2.createTrackbar('Canny thr2', 'win', 75, 255, go)
 cv2.createTrackbar('Display img', 'win', 0, 1, go)
 cv2.createTrackbar('translation', 'win', 0, 2, translate)
 cv2.createTrackbar('reset', 'win', 0, 1, reset_go)
@@ -159,8 +172,8 @@ cv2.setMouseCallback('win', mouse_click)
 
 with open('camera-cal_anker.json') as file:
     obj = json.load(file)
-matrix = obj.get('matrix', None)
-distortion = obj.get('distortion', None)
+matrix = np.asarray(obj.get('matrix', None))
+distortion = np.asarray(obj.get('distortion', None))
 h, w = image1.shape[:2]
 newcameramtx, roi = cv2.getOptimalNewCameraMatrix(matrix, distortion,
                                                   (w, h), 1, (w, h))
@@ -188,7 +201,7 @@ while True:
                     rv = cnc_c.wait_complete(5)
                     time.sleep(2)
                     (x0, y0, z0) = get_pos()
-                    for i in range(0,10):
+                    for i in range(0, 2):
                         cam.read()
                         time.sleep(0.1)
                     result, img0 = cam.read()
@@ -200,7 +213,7 @@ while True:
                     if rv != 1:
                         print('MDI command timed out')
                         break
-                    for i in range(0, 10):
+                    for i in range(0, 2):
                         cam.read()
                         time.sleep(0.1)
                     result, img1 = cam.read()
@@ -208,6 +221,8 @@ while True:
                                          newcameramtx)
                     v = np.asarray([[x, y] for (x, y, _) in target.vertices], dtype=np.int32)
                     disparity = depth.estimate_disparity(img0, img1, v)
+                    cv2.imwrite('img/20230420/img0.png', img0)
+                    cv2.imwrite('img/20230420/img1.png', img1)
 
                     '''cnc_c.mdi(f'G53 G90 G0 X{x0:0.5f} Z{z0 - 2.0:0.5f}')
                     rv = cnc_c.wait_complete(5)
@@ -240,16 +255,17 @@ while True:
                         vertices_translated.append([xv, yv])
                     # END DEBUG
                     vertices_translated = np.asarray(vertices_translated, dtype=np.int32)
-                    disparity1 = depth.estimate_disparity(img0, img1, vertices_translated)'''
-                    z0_est, f_by_d_est = depth.estimate_depth(disparity0, disparity1, 2, -2)
+                    disparity1 = depth.estimate_disparity(img0, img1, vertices_translated)
+                    z0_est, f_by_d_est = depth.estimate_depth(disparity0, disparity1, 2, -2)'''
 
                     cnc_c.mdi(f'G53 G90 G0 X{x0:0.5f} Z{z0:0.5f}')
                     rv = cnc_c.wait_complete(5)
+                    z0_est = matrix[0, 0] * 2.0 / disparity
 
-                    print(f'Disparity at Z0: {disparity0}, at Z-2: {disparity1}')
-                    print(f'Estimated Z0: {z0_est:.2f}, f/d: {f_by_d_est:.1f}')
-                    print('Successfully collected all 4 images, press a thing to continue')
-                    cv2.waitKey(0)
+                    print(f'Disparity at Z0: {disparity}')
+                    print(f'Estimated Z0: {z0_est:.2f}')
+                    # print('Successfully collected all 2  images, press a thing to continue')
+                    # cv2.waitKey(0)
                     break
                 else:
                     print('Machine not ready for MDI')
