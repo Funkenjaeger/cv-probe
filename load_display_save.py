@@ -200,7 +200,7 @@ while True:
 
                     cnc_c.mdi(f'G53 G90 G0 Z{0:0.5f}')
                     rv = cnc_c.wait_complete(5)
-                    time.sleep(2)
+                    # time.sleep(2)
                     (x0, y0, z0) = get_pos()
                     for i in range(0, 2):
                         cam.read()
