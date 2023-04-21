@@ -37,8 +37,8 @@ def estimate_disparity(img1, img2, v):
     minlocref = cv2.minMaxLoc(tm)[2]  # (x, y)
     tm = cv2.matchTemplate(cmp, ref, method=cv2.TM_SQDIFF)
     minloccmp = cv2.minMaxLoc(tm)[2]  # (x, y)
-    # TODO: this assumes camera moved in -Y direction; otherwise need to mirror the mask
-    return minlocref[1] - minloccmp[1]
+    # TODO: this assumes camera moved in +X direction; otherwise need to mirror the mask
+    return minloccmp[0] - minlocref[0]
 
 
 def estimate_depth(d0, d1, dx, dz):
