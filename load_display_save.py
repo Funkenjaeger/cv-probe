@@ -221,8 +221,6 @@ while True:
                                          newcameramtx)
                     v = np.asarray([[x, y] for (x, y, _) in target.vertices], dtype=np.int32)
                     disparity = depth.estimate_disparity(img0, img1, v)
-                    cv2.imwrite('img/20230420/img0.png', img0)
-                    cv2.imwrite('img/20230420/img1.png', img1)
 
                     '''cnc_c.mdi(f'G53 G90 G0 X{x0:0.5f} Z{z0 - 2.0:0.5f}')
                     rv = cnc_c.wait_complete(5)
