@@ -1,0 +1,6 @@
+[camera]
+f_min=300
+f_max=650
+n_window = 4
+f_threshold = 300 # Focus variance better than this value is automatically accepted
+f_default=415
